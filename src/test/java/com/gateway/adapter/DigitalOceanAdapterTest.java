@@ -62,4 +62,24 @@ class DigitalOceanAdapterTest {
         assertThat(adapter.isRetryableError(503, "")).isTrue();
         assertThat(adapter.isRetryableError(401, "")).isFalse();
     }
+
+    @Test
+    void translateStreamChunk_addsIdAndModel() {
+        String line = "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi\"},\"finish_reason\":null}]}";
+        List<String> chunks = adapter.translateStreamChunk(line, "chatcmpl-do", "gpt-4o-mini").collectList().block();
+        assertThat(chunks).hasSize(1);
+        assertThat(chunks.get(0)).contains("\"content\":\"Hi\"");
+        assertThat(chunks.get(0)).contains("\"id\":\"chatcmpl-do\"");
+        assertThat(chunks.get(0)).contains("\"model\":\"gpt-4o-mini\"");
+    }
+
+    @Test
+    void translateResponse_parsesDoJson() {
+        String body = """
+                {"id":"do-cmpl","object":"chat.completion","created":123,"model":"openai-gpt-4o-mini","choices":[{"index":0,"message":{"role":"assistant","content":"Done"},"finish_reason":"stop"}]}
+                """;
+        var response = adapter.translateResponse(body, "gpt-4o-mini");
+        assertThat(response.choices()).hasSize(1);
+        assertThat(response.choices().get(0).message().content()).isEqualTo("Done");
+    }
 }

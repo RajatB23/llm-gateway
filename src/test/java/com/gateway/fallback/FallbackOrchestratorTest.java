@@ -40,4 +40,19 @@ class FallbackOrchestratorTest {
         StreamContext context = new StreamContext("req-4");
         assertThat(orchestrator.shouldFallback(new java.io.IOException("timeout"), context)).isTrue();
     }
+
+    @Test
+    void shouldFallback_timeoutException() {
+        StreamContext context = new StreamContext("req-5");
+        assertThat(orchestrator.shouldFallback(new java.util.concurrent.TimeoutException("timed out"), context)).isTrue();
+    }
+
+    @Test
+    void shouldFallback_nonRetryable502AfterContentSent() {
+        StreamContext context = new StreamContext("req-6");
+        context.markContentSent();
+        StreamPipeService.UpstreamException error = new StreamPipeService.UpstreamException(502, "bad gateway", true);
+
+        assertThat(orchestrator.shouldFallback(error, context)).isFalse();
+    }
 }

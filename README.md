@@ -129,6 +129,111 @@ curl -s -H "Authorization: Bearer $DO_API_KEY" \
   https://inference.do-ai.run/v1/models | jq '.data[].id'
 ```
 
+## Verification & Testing
+
+### Run all tests locally
+
+Unit and integration tests (WireMock) run together via Maven:
+
+```bash
+cd llm-gateway
+mvn verify
+```
+
+Expected output ends with `BUILD SUCCESS` and **35 tests** passing (unit + integration).
+
+### Run a single test class
+
+```bash
+# Unit: adapter translation
+mvn -Dtest=OpenAiAdapterTest test
+
+# Unit: fallback logic
+mvn -Dtest=FallbackOrchestratorTest test
+
+# Integration: full HTTP + WireMock
+mvn -Dtest=ChatCompletionIntegrationTest test
+```
+
+Run one method:
+
+```bash
+mvn -Dtest=ChatCompletionIntegrationTest#happyPathStreaming_returnsUnifiedSseChunksAndDone test
+```
+
+### Start the app locally
+
+```bash
+export DO_API_KEY=doo_v1_...
+mvn spring-boot:run
+```
+
+### Health check
+
+```bash
+curl -s http://localhost:8080/actuator/health | jq .
+```
+
+Expect `"status":"UP"`.
+
+### Gateway streaming test (curl)
+
+```bash
+curl -N -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o-mini",
+    "messages": [{"role": "user", "content": "Say hello in one word"}],
+    "stream": true
+  }'
+```
+
+You should see SSE `data:` lines ending with `data: [DONE]`.
+
+### Direct DigitalOcean upstream (comparison)
+
+Same key, bypasses the gateway — useful to confirm DO credentials and model IDs:
+
+```bash
+curl -N -X POST https://inference.do-ai.run/v1/chat/completions \
+  -H "Authorization: Bearer $DO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "openai-gpt-4o-mini",
+    "messages": [{"role": "user", "content": "Say hello in one word"}],
+    "stream": true
+  }'
+```
+
+### Docker Compose verification
+
+```bash
+export DO_API_KEY=doo_v1_...
+docker compose up --build -d
+curl -s http://localhost:8080/actuator/health
+curl -N -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hi"}],"stream":true}'
+docker compose down
+```
+
+### CI on GitHub Actions
+
+Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+
+| Trigger | Branches |
+|---------|----------|
+| `push` | `main`, `master` |
+| `pull_request` | `main`, `master` |
+
+Steps on every run:
+
+1. Checkout repository
+2. JDK **21** (Temurin) with **Maven dependency cache**
+3. `mvn -B verify` — compile, run all tests, package JAR
+
+On success you should see a green check with **BUILD SUCCESS** in the job log. On failure, inspect the **Build and test** step for the failing test name and stack trace.
+
 ## Development
 
 ```bash

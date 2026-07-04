@@ -32,4 +32,26 @@ class ModelRouterTest {
                 .isInstanceOf(GatewayException.class)
                 .satisfies(ex -> assertThat(((GatewayException) ex).getStatus().value()).isEqualTo(404));
     }
+
+    @Test
+    void resolve_knownModel_returnsRouteDefinition() {
+        RouteDefinition route = new RouteDefinition("gpt-4o", List.of(
+                new RouteDefinition.ProviderTarget("openai", "gpt-4o", 0)));
+        ModelRouter router = new ModelRouter(Map.of("gpt-4o", route));
+
+        RouteDefinition resolved = router.resolve("gpt-4o");
+
+        assertThat(resolved.modelAlias()).isEqualTo("gpt-4o");
+        assertThat(resolved.chain()).hasSize(1);
+    }
+
+    @Test
+    void hasRoutes_and_routeCount() {
+        RouteDefinition route = new RouteDefinition("gpt-4o", List.of(
+                new RouteDefinition.ProviderTarget("openai", "gpt-4o", 0)));
+        ModelRouter router = new ModelRouter(Map.of("gpt-4o", route));
+
+        assertThat(router.hasRoutes()).isTrue();
+        assertThat(router.routeCount()).isEqualTo(1);
+    }
 }

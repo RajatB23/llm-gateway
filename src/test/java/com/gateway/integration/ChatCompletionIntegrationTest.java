@@ -51,6 +51,7 @@ class ChatCompletionIntegrationTest {
         registry.add("gateway.providers.openai.base-url", () -> "http://localhost:" + wireMock.port());
         registry.add("gateway.providers.anthropic.base-url", () -> "http://localhost:" + wireMock.port());
         registry.add("gateway.providers.gemini.base-url", () -> "http://localhost:" + wireMock.port());
+        registry.add("gateway.providers.digitalocean.base-url", () -> "http://localhost:" + wireMock.port());
     }
 
     @BeforeEach
@@ -175,6 +176,98 @@ class ChatCompletionIntegrationTest {
                 .expectStatus().isNotFound()
                 .expectBody()
                 .jsonPath("$.error.type").isEqualTo("not_found");
+    }
+
+    @Test
+    void digitalOceanRoute_streamingViaDoAdapter() {
+        stubFor(post(urlEqualTo("/chat/completions"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader(CONTENT_TYPE, "text/event-stream")
+                        .withBody("""
+                                data: {"id":"do-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"DO reply"},"finish_reason":null}]}
+
+                                data: {"id":"do-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+                                data: [DONE]
+
+                                """)));
+
+        webTestClient.post()
+                .uri("/v1/chat/completions")
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hi"}],"stream":true}
+                        """)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(body -> org.assertj.core.api.Assertions.assertThat(body).contains("DO reply"));
+    }
+
+    @Test
+    void digitalOceanPrimary503_backup200_silentFallback() {
+        stubFor(post(urlEqualTo("/chat/completions"))
+                .inScenario("do-fallback")
+                .whenScenarioStateIs("Started")
+                .withRequestBody(containing("openai-gpt-4o-mini"))
+                .willReturn(aResponse().withStatus(503).withBody("{\"error\":\"unavailable\"}"))
+                .willSetStateTo("Failed"));
+
+        stubFor(post(urlEqualTo("/chat/completions"))
+                .inScenario("do-fallback")
+                .whenScenarioStateIs("Failed")
+                .withRequestBody(containing("openai-gpt-4o"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader(CONTENT_TYPE, "text/event-stream")
+                        .withBody("""
+                                data: {"id":"do-2","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"DO backup"},"finish_reason":null}]}
+
+                                data: [DONE]
+
+                                """)));
+
+        webTestClient.post()
+                .uri("/v1/chat/completions")
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hi"}],"stream":true}
+                        """)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(body -> org.assertj.core.api.Assertions.assertThat(body).contains("DO backup"));
+    }
+
+    @Test
+    void invalidRequest_emptyMessages_returns400() {
+        webTestClient.post()
+                .uri("/v1/chat/completions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"model":"gpt-4o","messages":[],"stream":false}
+                        """)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.error.type").isEqualTo("invalid_request");
+    }
+
+    @Test
+    void invalidRequest_blankModel_returns400() {
+        webTestClient.post()
+                .uri("/v1/chat/completions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("""
+                        {"model":"","messages":[{"role":"user","content":"Hi"}],"stream":false}
+                        """)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.error.type").isEqualTo("invalid_request");
     }
 
     @Test
