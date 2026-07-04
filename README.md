@@ -156,7 +156,7 @@ All default routes use [DigitalOcean Gradient serverless inference](https://docs
 | `claude-haiku-4.5` | `anthropic-claude-haiku-4.5` | `anthropic-claude-5-sonnet` |
 | `claude-sonnet-5` | `anthropic-claude-5-sonnet` | `openai-gpt-4o` |
 | `deepseek-v4-flash` | `deepseek-4-flash` | `openai-gpt-4o-mini` |
-| `gpt-5-nano` | `openai-gpt-5-nano` | `openai-gpt-4o-mini` |
+| `gpt-5-nano` | `openai-gpt-5-nano` | `deepseek-4-flash` |
 | `ministral-3-14b` | `mistral-3-14B` | `openai-gpt-4o-mini` |
 
 List available upstream model IDs at runtime:
@@ -198,12 +198,60 @@ Run one method:
 mvn -Dtest=ChatCompletionIntegrationTest#happyPathStreaming_returnsUnifiedSseChunksAndDone test
 ```
 
-### Start the app locally
+### Two-terminal local workflow
+
+Use **two terminals**: one to run the gateway, one for curl tests.
+
+**Terminal 1 — start the gateway**
 
 ```bash
-export DO_API_KEY=doo_v1_...
+cd llm-gateway
+export DO_API_KEY=doo_v1_...   # MUST be in this same shell before startup
 mvn spring-boot:run
 ```
+
+> **Important:** `export DO_API_KEY=...` must run in the **same shell session** as `mvn spring-boot:run`. If you export in one terminal and start the app in another, the key will not be visible and DigitalOcean routes will fail.
+
+**Terminal 2 — run curl tests** (after startup logs confirm readiness; see below)
+
+```bash
+curl -s http://localhost:8080/actuator/health | jq .
+```
+
+### Startup confirmation
+
+In Terminal 1, wait for these log lines before sending requests from Terminal 2:
+
+```
+DigitalOcean API key configured: yes
+Started LlmGatewayApplication
+```
+
+If you see `DigitalOcean API key configured: no`, stop the app (`Ctrl+C`), re-export `DO_API_KEY` in that same shell, and restart.
+
+### Troubleshooting: port 8080 already in use
+
+If startup fails with `Port 8080 was already in use`:
+
+```bash
+# Option A — kill whatever holds the port
+fuser -k 8080/tcp
+
+# Option B — inspect then kill manually
+lsof -i :8080
+kill <PID>
+```
+
+Then restart in Terminal 1 (`mvn spring-boot:run`).
+
+### DigitalOcean budget tier fallback
+
+On a **budget DigitalOcean tier** ($5 and similar), some OpenAI upstream models may return **403 Forbidden** (tier-restricted). The gateway handles this silently:
+
+- **`gpt-5-nano`** — primary `openai-gpt-5-nano` may 403; gateway falls back to **`deepseek-4-flash`**
+- **`gpt-4o-mini`** — primary `openai-gpt-4o-mini` may 403; gateway falls back to **`openai-gpt-4o`** (more expensive — avoid for smoke tests)
+
+You will not see an error in the curl response; check gateway logs for fallback lines if you want to confirm which upstream was used. For local verification on a budget tier, prefer **`deepseek-v4-flash`** or **`gpt-5-nano`** with `"max_tokens": 10`.
 
 ### Health check
 
@@ -215,13 +263,29 @@ Expect `"status":"UP"`.
 
 ### Gateway streaming test (curl)
 
+Budget-safe examples — use **`deepseek-v4-flash`** or **`gpt-5-nano`** with a short prompt and `"max_tokens": 10`:
+
 ```bash
+# Preferred on budget DO tier (no OpenAI 403 fallback needed)
 curl -N -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-4o-mini",
-    "messages": [{"role": "user", "content": "Say hello in one word"}],
-    "stream": true
+    "model": "deepseek-v4-flash",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "stream": true,
+    "max_tokens": 10
+  }'
+```
+
+```bash
+# Also cheap; may silently fall back to deepseek-4-flash on budget tier
+curl -N -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-5-nano",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "stream": true,
+    "max_tokens": 10
   }'
 ```
 
