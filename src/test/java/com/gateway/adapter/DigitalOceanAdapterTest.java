@@ -64,6 +64,12 @@ class DigitalOceanAdapterTest {
     }
 
     @Test
+    void isRetryableError_403_modelUnavailable() {
+        assertThat(adapter.isRetryableError(403, "this model is not available for your subscription tier"))
+                .isTrue();
+    }
+
+    @Test
     void translateStreamChunk_addsIdAndModel() {
         String line = "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hi\"},\"finish_reason\":null}]}";
         List<String> chunks = adapter.translateStreamChunk(line, "chatcmpl-do", "gpt-4o-mini").collectList().block();

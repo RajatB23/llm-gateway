@@ -139,6 +139,10 @@ public class DigitalOceanAdapter implements ProviderAdapter {
 
     @Override
     public boolean isRetryableError(int status, String body) {
+        // DO uses 401 for missing/invalid keys; 403 means model unavailable or tier-restricted.
+        if (status == 403) {
+            return true;
+        }
         return status == 408 || status == 429 || status == 500 || status == 502
                 || status == 503 || status == 504;
     }
