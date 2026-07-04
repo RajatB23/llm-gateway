@@ -1,6 +1,6 @@
 # LLM API Gateway
 
-A production-ready unified LLM API gateway that exposes an OpenAI-compatible `POST /v1/chat/completions` endpoint, routes requests to OpenAI, Anthropic, Google Gemini, and DigitalOcean Gradient via the adapter pattern, streams SSE responses without full buffering, and silently fails over to backup providers on transient errors.
+A production-ready unified LLM API gateway that exposes an OpenAI-compatible `POST /v1/chat/completions` endpoint, routes requests to OpenAI, Anthropic, Google Gemini, and DigitalOcean Gradient via the adapter pattern, streams SSE responses without full buffering, and silently fails over to backup providers on transient errors..
 
 ## Features
 
