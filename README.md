@@ -24,7 +24,7 @@ A production-ready unified LLM API gateway that exposes an OpenAI-compatible `PO
 **DigitalOcean Gradient (recommended for bundled model access):**
 
 ```bash
-export DO_API_KEY=doo_v1_...   # or DIGITALOCEAN_API_KEY
+export DO_API_KEY=doo_v1_...   # aliases: MODEL_ACCESS_KEY, DIGITALOCEAN_API_KEY
 ```
 
 **Direct provider keys (optional, for legacy routes):**
@@ -98,8 +98,8 @@ Health check: `curl http://localhost:8080/actuator/health`
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DO_API_KEY` | For DigitalOcean routes | DigitalOcean model access key (`doo_v1_...`). Alias: `DIGITALOCEAN_API_KEY` |
-| `DO_INFERENCE_BASE_URL` | No (default `https://inference.do-ai.run`) | DigitalOcean serverless inference base URL |
+| `DO_API_KEY` | For DigitalOcean routes | DigitalOcean model access key (`doo_v1_...`). Aliases: `MODEL_ACCESS_KEY`, `DIGITALOCEAN_API_KEY` |
+| `DO_INFERENCE_BASE_URL` | No (default `https://inference.do-ai.run/v1`) | DigitalOcean serverless inference base URL (OpenAI-compatible `/v1` prefix) |
 | `OPENAI_API_KEY` | For direct OpenAI routes | OpenAI bearer token |
 | `ANTHROPIC_API_KEY` | For direct Anthropic routes | Anthropic API key |
 | `GOOGLE_API_KEY` | For Gemini routes | Google AI API key |

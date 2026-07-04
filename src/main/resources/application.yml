@@ -21,8 +21,8 @@ gateway:
       base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
       api-key: ${GOOGLE_API_KEY:}
     digitalocean:
-      base-url: ${DO_INFERENCE_BASE_URL:https://inference.do-ai.run}
-      api-key: ${DO_API_KEY:${DIGITALOCEAN_API_KEY:}}
+      base-url: ${DO_INFERENCE_BASE_URL:https://inference.do-ai.run/v1}
+      api-key: ${DO_API_KEY:${MODEL_ACCESS_KEY:${DIGITALOCEAN_API_KEY:}}}
   timeouts:
     connect-ms: 5000
     read-first-byte-ms: 30000
