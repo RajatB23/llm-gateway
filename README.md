@@ -83,7 +83,133 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 
 ## Deployment (DigitalOcean)
 
-For production deployment to a DigitalOcean droplet with GitHub Actions CI/CD, see **[docs/deployment.md](docs/deployment.md)**.
+For full droplet bootstrap, `.env` setup, manual first deploy, and CI/CD workflow details, see **[docs/deployment.md](docs/deployment.md)**.
+
+After deploy (manual or GitHub Actions), use the steps below to confirm the gateway is healthy on the droplet.
+
+### Verify on droplet
+
+SSH into the droplet, then run these commands from `/opt/llm-gateway`:
+
+```bash
+ssh root@YOUR_DROPLET_IP
+cd /opt/llm-gateway
+```
+
+**1. Get public IP**
+
+```bash
+curl -s ifconfig.me
+```
+
+**2. Container status (expect `healthy`)**
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml ps
+```
+
+**3. Health check (localhost)**
+
+```bash
+curl -s http://localhost:8080/actuator/health | jq .
+# Expect: "status":"UP"
+```
+
+**4. Budget-safe streaming test (on droplet)**
+
+```bash
+curl -N -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "deepseek-v4-flash",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "stream": true,
+    "max_tokens": 10
+  }'
+```
+
+**5. Public IP test (from your laptop)** — replace `YOUR_DROPLET_IP` with the droplet's public IP (from step 1 or the DO control panel)
+
+```bash
+curl -s http://YOUR_DROPLET_IP:8080/actuator/health | jq .
+
+curl -N -X POST http://YOUR_DROPLET_IP:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "deepseek-v4-flash",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "stream": true,
+    "max_tokens": 10
+  }'
+```
+
+**6. Expected logs**
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml logs --tail=50
+```
+
+Follow live logs with `logs -f` — press **Ctrl+C** to stop following without stopping the container:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml logs -f
+```
+
+Startup lines to confirm:
+
+```
+DigitalOcean API key configured: yes
+Started LlmGatewayApplication
+```
+
+If you see `DigitalOcean API key configured: no`, check `/opt/llm-gateway/.env` has a valid `DO_API_KEY`, then redeploy.
+
+On a **512MB budget tier**, some OpenAI upstream models return **403 Forbidden** (tier-restricted). The gateway fails over silently — the curl response still succeeds. After a `gpt-5-nano` request, look for a fallback line such as:
+
+```
+Fallback triggered from=openai-gpt-5-nano to=deepseek-4-flash reason=... requestId=...
+```
+
+For smoke tests on budget droplets, prefer **`deepseek-v4-flash`** (avoids OpenAI 403 fallback) or **`gpt-5-nano`** with `"max_tokens": 10`.
+
+### GitHub Actions secrets
+
+Configure these in **[Settings → Secrets and variables → Actions](https://github.com/RajatB23/llm-gateway/settings/secrets/actions)** before the deploy workflow can succeed:
+
+| Secret | Value | Description |
+|--------|-------|-------------|
+| `DROPLET_HOST` | Droplet public IP or hostname | e.g. `157.x.x.x` |
+| `DROPLET_USER` | `root` | SSH user for deploy |
+| `DROPLET_SSH_KEY` | Private key (PEM) | Full private key file contents |
+| `DO_API_KEY` | `doo_v1_...` | Synced to droplet `.env` on each deploy |
+
+Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — runs tests then deploys on push to `main`.
+
+### SSH key note
+
+The **public** key must be on the droplet in `/root/.ssh/authorized_keys`. The **private** key goes in GitHub secret `DROPLET_SSH_KEY`.
+
+Generate the key pair on your **laptop** (not on the droplet):
+
+```bash
+ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/llm-gateway-deploy -N ""
+```
+
+On the droplet: paste the `.pub` contents into `authorized_keys`. In GitHub: paste the private key file (including `BEGIN`/`END` lines) into `DROPLET_SSH_KEY`.
+
+See [docs/deployment.md — Generate a deploy SSH key pair](docs/deployment.md#generate-a-deploy-ssh-key-pair) for the full walkthrough.
+
+### Droplet troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| Stuck in `logs -f` | Press **Ctrl+C** to exit log follow mode |
+| Port 8080 unreachable from laptop | Check UFW on droplet (`ufw status`) and **DigitalOcean cloud firewall** — allow inbound TCP **8080** |
+| Container OOM / restart loop | 512MB droplets need swap (see `deploy/setup-droplet.sh`); **1GB+ RAM recommended** for production |
+| `DigitalOcean API key configured: no` | Verify `/opt/llm-gateway/.env` has a valid `DO_API_KEY` |
+| Deploy SSH fails | Confirm `DROPLET_SSH_KEY` matches the public key in droplet `authorized_keys` |
+
+More detail: [docs/deployment.md — Troubleshooting](docs/deployment.md#troubleshooting).
 
 ## Docker
 
@@ -333,9 +459,7 @@ On success you should see a green check with **BUILD SUCCESS** in the job log. O
 
 ### Deploy to DigitalOcean (CI/CD)
 
-Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — runs tests then deploys on push to `main`.
-
-See **[docs/deployment.md](docs/deployment.md)** for droplet setup, GitHub secrets, and verification steps.
+See **[Deployment (DigitalOcean)](#deployment-digitalocean)** above for verify-on-droplet steps, GitHub secrets, SSH key setup, and troubleshooting. Full bootstrap guide: **[docs/deployment.md](docs/deployment.md)**.
 
 ## Development
 
