@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
         OpenAiProviderProperties.class,
         AnthropicProviderProperties.class,
         GeminiProviderProperties.class,
+        DigitalOceanProviderProperties.class,
         GatewayAuthProperties.class
 })
 public class GatewayApplicationConfig {

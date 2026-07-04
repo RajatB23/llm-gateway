@@ -16,6 +16,9 @@ gateway:
     gemini:
       base-url: http://localhost:${wiremock.port}
       api-key: test-google-key
+    digitalocean:
+      base-url: http://localhost:${wiremock.port}
+      api-key: test-do-key
 
 logging:
   level:
