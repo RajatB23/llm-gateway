@@ -1,0 +1,39 @@
+routes:
+  gpt-4o:
+    chain:
+      - providerId: openai
+        upstreamModel: gpt-4o
+        priority: 0
+      - providerId: anthropic
+        upstreamModel: claude-3-5-sonnet-20241022
+        priority: 1
+
+  gpt-4o-mini:
+    chain:
+      - providerId: openai
+        upstreamModel: gpt-4o-mini
+        priority: 0
+
+  claude-3-5-sonnet:
+    chain:
+      - providerId: anthropic
+        upstreamModel: claude-3-5-sonnet-20241022
+        priority: 0
+      - providerId: openai
+        upstreamModel: gpt-4o
+        priority: 1
+
+  gemini-1.5-pro:
+    chain:
+      - providerId: gemini
+        upstreamModel: gemini-1.5-pro
+        priority: 0
+      - providerId: openai
+        upstreamModel: gpt-4o
+        priority: 1
+
+  gemini-1.5-flash:
+    chain:
+      - providerId: gemini
+        upstreamModel: gemini-1.5-flash
+        priority: 0

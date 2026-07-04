@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: llm-gateway-test
+
+gateway:
+  routes-file: classpath:routes-test.yml
+  auth:
+    enabled: false
+  providers:
+    openai:
+      base-url: http://localhost:${wiremock.port}
+      api-key: test-openai-key
+    anthropic:
+      base-url: http://localhost:${wiremock.port}
+      api-key: test-anthropic-key
+    gemini:
+      base-url: http://localhost:${wiremock.port}
+      api-key: test-google-key
+
+logging:
+  level:
+    com.gateway: DEBUG

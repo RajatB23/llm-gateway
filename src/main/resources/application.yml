@@ -1,0 +1,44 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: llm-gateway
+
+gateway:
+  routes-file: classpath:routes.yml
+  auth:
+    enabled: false
+    api-key: ${GATEWAY_API_KEY:}
+  providers:
+    openai:
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      api-key: ${OPENAI_API_KEY:}
+    anthropic:
+      base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
+      api-key: ${ANTHROPIC_API_KEY:}
+    gemini:
+      base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+      api-key: ${GOOGLE_API_KEY:}
+  timeouts:
+    connect-ms: 5000
+    read-first-byte-ms: 30000
+    read-inter-chunk-ms: 120000
+    total-request-ms: 300000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  info:
+    env:
+      enabled: true
+
+logging:
+  level:
+    com.gateway: INFO
+    root: INFO
