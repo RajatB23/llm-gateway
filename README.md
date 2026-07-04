@@ -83,16 +83,53 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 
 ## Docker
 
+Only `DO_API_KEY` is required for the default DigitalOcean routes:
+
 ```bash
 export DO_API_KEY=doo_v1_...
-export OPENAI_API_KEY=sk-...
-export ANTHROPIC_API_KEY=sk-ant-...
-export GOOGLE_API_KEY=AIza...
-
 docker compose up --build
 ```
 
 Health check: `curl http://localhost:8080/actuator/health`
+
+### Docker Verification (Budget-Safe)
+
+Use this flow to smoke-test the container on a **$5 DigitalOcean budget**. Keep prompts short and cap output tokens.
+
+```bash
+export DO_API_KEY=doo_v1_...
+
+# Build and start in the background
+docker compose up --build -d
+
+# Wait for health (Compose also runs an internal wget healthcheck)
+curl -s http://localhost:8080/actuator/health | jq .
+# Expect: "status":"UP"
+
+# ONE cheap streaming test (~pennies). Prefer gpt-5-nano or deepseek-v4-flash.
+curl -N -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-5-nano",
+    "messages": [{"role": "user", "content": "Hi"}],
+    "stream": true,
+    "max_tokens": 10
+  }'
+
+# Tear down when done
+docker compose down
+```
+
+**Cost note:** Avoid `gpt-4o`, `claude-sonnet-5`, and other premium aliases for smoke tests — fallbacks can escalate to expensive upstream models. Stick to `gpt-5-nano` or `deepseek-v4-flash` with `max_tokens: 10` and a one-word prompt.
+
+| Model alias | Input / Output (per 1M tokens) | Smoke-test fit |
+|-------------|-------------------------------|----------------|
+| `gpt-5-nano` | Cheapest OpenAI-class on DO | **Best** — default for verification |
+| `deepseek-v4-flash` | $0.14 / $0.28 | **Best** — strong cheap alternative |
+| `ministral-3-14b` | $0.20 / $0.20 | Good — flat pricing |
+| `gpt-4o-mini` | $0.15 / $0.60 | OK — higher output cost |
+| `gpt-4o` | Premium | **Avoid** for smoke tests |
+| `claude-sonnet-5` | Premium | **Avoid** for smoke tests |
 
 ## Configuration
 
@@ -207,15 +244,7 @@ curl -N -X POST https://inference.do-ai.run/v1/chat/completions \
 
 ### Docker Compose verification
 
-```bash
-export DO_API_KEY=doo_v1_...
-docker compose up --build -d
-curl -s http://localhost:8080/actuator/health
-curl -N -X POST http://localhost:8080/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"Hi"}],"stream":true}'
-docker compose down
-```
+See [Docker Verification (Budget-Safe)](#docker-verification-budget-safe) above.
 
 ### CI on GitHub Actions
 

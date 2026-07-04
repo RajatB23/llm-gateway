@@ -7,7 +7,8 @@ RUN mvn -B -q package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-RUN addgroup -S gateway && adduser -S gateway -G gateway
+RUN apk add --no-cache wget \
+    && addgroup -S gateway && adduser -S gateway -G gateway
 USER gateway
 COPY --from=build /app/target/llm-gateway-*.jar app.jar
 EXPOSE 8080
