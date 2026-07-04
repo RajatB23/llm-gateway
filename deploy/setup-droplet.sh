@@ -25,7 +25,15 @@ fi
 systemctl enable --now docker
 
 echo "==> Ensuring Docker Compose plugin..."
-apt-get install -y -qq docker-compose-plugin
+if ! docker compose version >/dev/null 2>&1; then
+  echo "Docker Compose plugin not found; trying apt package (optional)..."
+  apt-get install -y -qq docker-compose-plugin || true
+fi
+if ! docker compose version >/dev/null 2>&1; then
+  echo "ERROR: docker compose is unavailable. Re-run Docker install: curl -fsSL https://get.docker.com | sh"
+  exit 1
+fi
+docker compose version
 
 echo "==> Configuring swap (${SWAP_SIZE}) for small-RAM droplets..."
 if [ ! -f /swapfile ]; then
