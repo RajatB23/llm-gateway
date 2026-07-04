@@ -1,0 +1,54 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build and test
+        run: mvn -B verify
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DROPLET_SSH_KEY }}
+
+      - name: Deploy to DigitalOcean droplet
+        env:
+          DROPLET_HOST: ${{ secrets.DROPLET_HOST }}
+          DROPLET_USER: ${{ secrets.DROPLET_USER }}
+          DO_API_KEY: ${{ secrets.DO_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DROPLET_HOST:-}" ] || [ -z "${DROPLET_USER:-}" ] || [ -z "${DO_API_KEY:-}" ]; then
+            echo "Missing required secrets: DROPLET_HOST, DROPLET_USER, DO_API_KEY"
+            exit 1
+          fi
+
+          ssh-keyscan -H "$DROPLET_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          scp deploy/remote-deploy.sh "${DROPLET_USER}@${DROPLET_HOST}:/tmp/remote-deploy.sh"
+          ssh "${DROPLET_USER}@${DROPLET_HOST}" \
+            "DO_API_KEY=$(printf '%q' "$DO_API_KEY") bash /tmp/remote-deploy.sh"
+          ssh "${DROPLET_USER}@${DROPLET_HOST}" "rm -f /tmp/remote-deploy.sh"

@@ -1,0 +1,29 @@
+# Production compose for DigitalOcean droplet deployment.
+# Run from repo root: docker compose -f deploy/docker-compose.prod.yml up --build -d
+services:
+  llm-gateway:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../.env
+    environment:
+      SERVER_PORT: 8080
+      # Tuned for 512MB droplet — override in .env or upgrade to 1GB+ RAM
+      JAVA_OPTS: >-
+        -Xms128m
+        -Xmx256m
+        -XX:+UseSerialGC
+        -XX:MaxMetaspaceSize=128m
+        -XX:+ExitOnOutOfMemoryError
+    mem_limit: 384m
+    memswap_limit: 512m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s

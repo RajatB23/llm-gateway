@@ -81,6 +81,10 @@ curl -X POST http://localhost:8080/v1/chat/completions \
   }'
 ```
 
+## Deployment (DigitalOcean)
+
+For production deployment to a DigitalOcean droplet with GitHub Actions CI/CD, see **[docs/deployment.md](docs/deployment.md)**.
+
 ## Docker
 
 Only `DO_API_KEY` is required for the default DigitalOcean routes:
@@ -326,6 +330,12 @@ Steps on every run:
 3. `mvn -B verify` — compile, run all tests, package JAR
 
 On success you should see a green check with **BUILD SUCCESS** in the job log. On failure, inspect the **Build and test** step for the failing test name and stack trace.
+
+### Deploy to DigitalOcean (CI/CD)
+
+Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — runs tests then deploys on push to `main`.
+
+See **[docs/deployment.md](docs/deployment.md)** for droplet setup, GitHub secrets, and verification steps.
 
 ## Development
 

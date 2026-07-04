@@ -12,4 +12,6 @@ RUN apk add --no-cache wget \
 USER gateway
 COPY --from=build /app/target/llm-gateway-*.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Override via docker-compose (e.g. -Xmx256m for 512MB droplets)
+ENV JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseSerialGC -XX:MaxMetaspaceSize=128m"
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
